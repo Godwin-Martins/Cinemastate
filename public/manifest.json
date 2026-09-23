@@ -1,0 +1,21 @@
+{
+  "short_name": "AlphaFlix",
+  "name": "AlphaFlix",
+  "icons": [
+    {
+      "src": "icon.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0f172a",
+  "theme_color": "#0ea5e9",
+  "display": "standalone",
+  "orientation": "portrait-primary"
+}

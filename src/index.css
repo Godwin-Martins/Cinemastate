@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "swiper/css";
+@import "swiper/css/navigation";
+@import "swiper/css/pagination";
+
+
+body {
+  background-color: #0a1a2f; /* dark navy */
+  color: white;
+}
+
+.role-scroller {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.role-scroller__text {
+  display: inline-block;
+  min-width: 100%;
+}
+
+.role-scroller__text--moving {
+  animation: role-scroll 8s ease-in-out infinite alternate;
+}
+
+@keyframes role-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-1 * var(--role-scroll-distance)));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .role-scroller__text--moving {
+    animation: none;
+  }
+}
+
+.scrollbar-horizontal::-webkit-scrollbar {
+  height: 8px;
+}
+.scrollbar-horizontal::-webkit-scrollbar-thumb {
+  background: #0c223e; /* sky-400 */
+  border-radius: 8px;
+}
+.scrollbar-horizontal::-webkit-scrollbar-track {
+  background: transparent;
+}
+/* Custom scrollbar for cast section */
+@media (min-width: 1024px) { /* Only on lg+ screens */
+  .custom-scrollbar::-webkit-scrollbar {
+    height: 8px; /* slim horizontal bar */
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent; /* no track */
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #0c223e; /* skyblue */
+    border-radius: 9999px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #0c223e; /* darker skyblue on hover */
+  }
+}
+
+/* WebView custom scrollbar */
+.webview-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.webview-scrollbar::-webkit-scrollbar-track {
+  background: #1a1a2e;
+  border-radius: 4px;
+}
+
+.webview-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #0ea5e9, #0284c7);
+  border-radius: 4px;
+  border: 1px solid #1a1a2e;
+}
+
+.webview-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #0284c7, #0369a1);
+}
+
+.webview-scrollbar::-webkit-scrollbar-corner {
+  background: #1a1a2e;
+}
+
+/* Firefox scrollbar for WebView */
+.webview-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #0ea5e9 #1a1a2e;
+}
+
+/* Hide scrollbar completely for cleaner look */
+.webview-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.webview-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
