@@ -3,7 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { DownloadManagerPlugin } from '../plugins/download-manager-plugin';
 import { motion } from "framer-motion";
 import { FiX, FiArrowLeft, FiRefreshCw, FiExternalLink } from 'react-icons/fi';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function WebView() {
   const { url } = useParams();
@@ -13,10 +13,23 @@ export default function WebView() {
   const [isIOS, setIsIOS] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
   const [nativeOpened, setNativeOpened] = useState(false);
+  const iframeRef = useRef(null);
 
   // Decode the URL parameter
   const decodedUrl = decodeURIComponent(url);
   const downloadMetadata = location.state?.downloadMetadata;
+  const returnTo = location.state?.returnTo || "/";
+
+  const updateWebViewUrl = (nextUrl) => {
+    if (!nextUrl || nextUrl === decodedUrl || !/^https?:\/\//i.test(nextUrl)) {
+      return;
+    }
+
+    navigate(`/webview/${encodeURIComponent(nextUrl)}`, {
+      replace: true,
+      state: { downloadMetadata, returnTo },
+    });
+  };
 
   // Detect iOS devices
   useEffect(() => {
@@ -61,6 +74,30 @@ export default function WebView() {
     }
   }, [isAndroid, nativeOpened, decodedUrl, downloadMetadata]);
 
+  useEffect(() => {
+    const handleFrameMessage = (event) => {
+      if (event.source !== iframeRef.current?.contentWindow) {
+        return;
+      }
+
+      const nextUrl = typeof event.data === "string" ? event.data : event.data?.url;
+      updateWebViewUrl(nextUrl);
+    };
+
+    window.addEventListener("message", handleFrameMessage);
+    return () => window.removeEventListener("message", handleFrameMessage);
+  }, [decodedUrl, downloadMetadata, returnTo]);
+
+  const handleFrameLoad = () => {
+    setIsLoading(false);
+
+    try {
+      updateWebViewUrl(iframeRef.current?.contentWindow?.location?.href);
+    } catch {
+      // Cross-origin frames cannot expose their current URL to the parent.
+    }
+  };
+
   const handleRefresh = () => {
     setIsLoading(true);
     const iframe = document.querySelector('iframe');
@@ -92,7 +129,7 @@ export default function WebView() {
           <motion.button
             whileHover={{ scale: 1.1, backgroundColor: '#0ea5e9' }}
             whileTap={{ scale: 0.9 }}
-            onClick={() => navigate(-1)}
+            onClick={() => navigate(returnTo, { replace: true })}
             className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 bg-skyblue/90 hover:bg-skyblue rounded-full transition-all duration-200 shadow-md"
             title="Go back"
           >
@@ -124,18 +161,6 @@ export default function WebView() {
 
         {/* Right Section - Action Buttons */}
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-          {isIOS && (
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleOpenExternal}
-              className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 bg-orange-600/80 hover:bg-orange-500 rounded-full transition-all duration-200"
-              title="Open for downloads (iOS)"
-            >
-              <FiExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-            </motion.button>
-          )}
-
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -159,19 +184,6 @@ export default function WebView() {
         </div>
       </motion.div>
 
-      {isIOS && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-orange-600/90 text-white text-xs sm:text-sm px-3 py-2 text-center border-b border-orange-500/50"
-        >
-          <div className="flex items-center justify-center gap-2">
-            <span>📱</span>
-            <span>iOS: Use the orange button to open downloads in Safari</span>
-          </div>
-        </motion.div>
-      )}
-
       {/* Loading Overlay */}
       {isLoading && (
         <motion.div
@@ -190,6 +202,7 @@ export default function WebView() {
       {/* Web Content */}
       <div className="flex-1 relative overflow-hidden">
         <iframe
+          ref={iframeRef}
           src={decodedUrl}
           className="w-full h-full border-0 webview-scrollbar"
           title="External Content"
@@ -199,7 +212,7 @@ export default function WebView() {
             : "allow-scripts allow-same-origin allow-forms allow-presentation allow-downloads allow-downloads-without-user-activation allow-modals allow-orientation-lock allow-pointer-lock allow-top-navigation-by-user-activation"
           }
           allow="downloads; fullscreen; autoplay; encrypted-media; picture-in-picture"
-          onLoad={() => setIsLoading(false)}
+          onLoad={handleFrameLoad}
           style={{
             WebkitTouchCallout: 'none',
             WebkitUserSelect: 'none',

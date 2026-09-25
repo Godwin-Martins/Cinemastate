@@ -14,6 +14,7 @@ const SERIES_SECTIONS = [
   { title: "Marvel Series", url: `/discover/tv?api_key=${API_KEY}&with_companies=420|4201&sort_by=popularity.desc` },
   { title: "DC Series", url: `/discover/tv?api_key=${API_KEY}&with_companies=71|164|2243|27711&sort_by=popularity.desc` },
   { title: "Animation", url: `/discover/tv?api_key=${API_KEY}&with_genres=16` },
+  { title: "Anime", url: `/discover/tv?api_key=${API_KEY}&with_genres=16&with_original_language=ja&sort_by=popularity.desc` },
   { title: "Horror", url: `/discover/tv?api_key=${API_KEY}&with_genres=27` },
   { title: "Comedy", url: `/discover/tv?api_key=${API_KEY}&with_genres=35` },
   { title: "Thrillers", url: `/discover/tv?api_key=${API_KEY}&with_genres=80` },

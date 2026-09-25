@@ -11,11 +11,20 @@ import {
 } from "../utils/userMediaStorage";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
-import { FiDownload, FiX, FiArrowLeft, FiPlay, FiServer, FiHeart, FiShare2 } from 'react-icons/fi';
+import { FiDownload, FiX, FiArrowLeft, FiPlay, FiServer, FiHeart, FiShare2, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 
 const API_KEY = "2ff044456d4fa1c8534fc9e4378e227f";
 const IMG_BASE = "https://image.tmdb.org/t/p/original";
 const POSTER_BASE = "https://image.tmdb.org/t/p/w342";
+
+const formatDisplayDate = (dateString) => {
+  if (!dateString) return "";
+
+  const [year, month, day] = dateString.split("-");
+  if (!year || !month || !day) return dateString;
+
+  return `${Number(month)}/${Number(day)}/${year}`;
+};
 
 function ScrollingRole({ role, className }) {
   const containerRef = useRef(null);
@@ -74,17 +83,18 @@ export default function ShowMovieDetails() {
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [isDescriptionOverflowing, setIsDescriptionOverflowing] = useState(false);
   const [showPlayer, setShowPlayer] = useState(false);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadTarget, setDownloadTarget] = useState({ itemType: 'movie', episode: null });
   const [currentEpisode, setCurrentEpisode] = useState(null);
   const [currentSeason, setCurrentSeason] = useState(1);
   const [trailerUrl, setTrailerUrl] = useState(null);
   const [showTrailer, setShowTrailer] = useState(false);
   const [hoveredEpisodeId, setHoveredEpisodeId] = useState(null);
-  const [showDownloadModal, setShowDownloadModal] = useState(false);
-  const [downloadContext, setDownloadContext] = useState({ itemType: "media", episode: null });
   const hoverTimeoutRef = useRef(null);
   const descriptionRef = useRef(null);
   const recommendationSentinelRef = useRef(null);
   const recommendationRequestRef = useRef(false);
+  const continueWatchingAutoPlayRef = useRef(false);
 
   // Streaming Server State Management
   const [activeServer, setActiveServer] = useState("vidsrc"); // Default streaming provider
@@ -93,6 +103,10 @@ export default function ShowMovieDetails() {
     setShowFullDescription(false);
     setIsDescriptionOverflowing(false);
   }, [media?.overview]);
+
+  useEffect(() => {
+    document.title = media ? `${media.title || media.name} | AlphaFlix` : "AlphaFlix";
+  }, [media]);
 
   useEffect(() => {
     const description = descriptionRef.current;
@@ -233,6 +247,35 @@ export default function ShowMovieDetails() {
     fetchMediaDetails();
   }, [mediaType, id, selectedSeason, checkSavedStatus]);
 
+  useEffect(() => {
+    const resumeSeason = location.state?.resumeSeason;
+    const resumeEpisode = location.state?.resumeEpisode;
+
+    if (
+      mediaType !== "tv" ||
+      continueWatchingAutoPlayRef.current ||
+      resumeSeason == null ||
+      resumeEpisode == null
+    ) {
+      return;
+    }
+
+    if (selectedSeason !== resumeSeason) {
+      setSelectedSeason(resumeSeason);
+      return;
+    }
+
+    const episodeToResume = seasonEpisodes.find(
+      (episode) => episode.episode_number === resumeEpisode
+    );
+    if (!episodeToResume) return;
+
+    continueWatchingAutoPlayRef.current = true;
+    setCurrentEpisode(episodeToResume);
+    setCurrentSeason(resumeSeason);
+    setShowPlayer(true);
+  }, [location.state, mediaType, seasonEpisodes, selectedSeason]);
+
   const mediaGenreKey = media?.genres?.map(genre => genre.id).join("|") || "";
 
   const loadRecommendations = useCallback(async (page, reset = false) => {
@@ -300,13 +343,16 @@ export default function ShowMovieDetails() {
   }, [loadRecommendations, mediaGenreKey, recommendationPage]);
 
   // Function to add media to watch history
-  const addToWatchHistory = async () => {
+  const addToWatchHistory = async (episode = null, season = selectedSeason) => {
     const user = auth.currentUser;
     if (!user || !media) return;
 
     const mediaToAdd = {
       ...media,
       media_type: mediaType,
+      lastWatchedSeason: mediaType === "tv" ? season : null,
+      lastWatchedEpisode: mediaType === "tv" ? episode?.episode_number ?? null : null,
+      lastWatchedEpisodeId: mediaType === "tv" ? episode?.id ?? null : null,
     };
     try {
       await addMediaToWatchHistory(user.uid, mediaToAdd);
@@ -317,25 +363,17 @@ export default function ShowMovieDetails() {
 
   // Function to handle playing media
   const handlePlay = (episode = null) => {
-    addToWatchHistory();
-
     if (mediaType === "tv") {
-      const episodeToPlay = episode || seasonEpisodes[0];
-      if (episodeToPlay) {
-        setCurrentEpisode(episodeToPlay);
-        setCurrentSeason(selectedSeason);
-        setShowPlayer(true);
-        toast.info(`Playing ${media.name} - S${selectedSeason}E${episodeToPlay.episode_number}`, {
-          position: "top-center",
-          autoClose: 2000,
-        });
-      }
-    } else {
+      const episodeToPlay = episode || (selectedSeason === 1 ? seasonEpisodes[0] : null) || { episode_number: 1 };
+      const seasonToPlay = episode ? selectedSeason : 1;
+
+      addToWatchHistory(episodeToPlay, seasonToPlay);
+      setCurrentEpisode(episodeToPlay);
+      setCurrentSeason(seasonToPlay);
       setShowPlayer(true);
-      toast.info(`Playing ${media.title}`, {
-        position: "top-center",
-        autoClose: 2000,
-      });
+    } else {
+      addToWatchHistory();
+      setShowPlayer(true);
     }
   };
 
@@ -346,56 +384,86 @@ export default function ShowMovieDetails() {
     setActiveServer("vidsrc"); // Reset back to default server on close
   };
 
+  const getAdjacentEpisode = (direction) => {
+    if (mediaType !== "tv" || !currentEpisode) return null;
+
+    const currentEpisodeIndex = seasonEpisodes.findIndex((episode) => (
+      episode.id === currentEpisode.id ||
+      episode.episode_number === currentEpisode.episode_number
+    ));
+
+    return currentEpisodeIndex >= 0 ? seasonEpisodes[currentEpisodeIndex + direction] : null;
+  };
+
+  const handlePreviousEpisode = () => {
+    const previousEpisode = getAdjacentEpisode(-1);
+
+    if (previousEpisode) {
+      addToWatchHistory(previousEpisode, selectedSeason);
+      setCurrentEpisode(previousEpisode);
+      setCurrentSeason(selectedSeason);
+    }
+  };
+
+  const handleNextEpisode = () => {
+    const nextEpisode = getAdjacentEpisode(1);
+
+    if (nextEpisode) {
+      addToWatchHistory(nextEpisode, selectedSeason);
+      setCurrentEpisode(nextEpisode);
+      setCurrentSeason(selectedSeason);
+    }
+  };
+
   // Dynamic URL construction with VidLink fallback routing
   const getVideoUrl = () => {
     if (activeServer === "vidlink") {
       // VidLink Route Builder
       if (mediaType === "movie") {
-        return `https://vidlink.pro/movie/${id}?primaryColor=0ea5e9`;
+        return `https://video.moviepire.co/embed/movie/${id}?primaryColor=0ea5e9`;
       } else if (mediaType === "tv" && currentEpisode) {
-        return `https://vidlink.pro/tv/${id}/${currentSeason}/${currentEpisode.episode_number}?primaryColor=0ea5e9`;
+        return `https://video.moviepire.co/embed/tv/${id}/${currentSeason}/${currentEpisode.episode_number}?primaryColor=0ea5e9`;
       }
-      return `https://vidlink.pro/${mediaType}/${id}?primaryColor=0ea5e9`;
+      return `https://video.moviepire.co/embed/${mediaType}/${id}?primaryColor=0ea5e9`;
     } else {
-      // Default Vidsrc (vsrc.su) Route Builder
+      // Vidsrc.link Route Builder
       if (mediaType === "movie") {
-        return `https://vsrc.su/embed/movie/${id}?autoplay=1`;
+        return `https://vidsrc.link/embed/movie/${id}`;
       } else if (mediaType === "tv" && currentEpisode) {
-        return `https://vsrc.su/embed/tv/${id}/${currentSeason}/${currentEpisode.episode_number}?autoplay=1`;
+        return `https://vidsrc.link/embed/tv/${id}/${currentSeason}/${currentEpisode.episode_number}`;
       }
-      return `https://vsrc.su/embed/${mediaType}/${id}?autoplay=1`;
+      return `https://vidsrc.link/embed/tv/${id}/1/1`;
     }
   };
 
-  // Download Handler function - opens in-app webview
-  const handleDownload = (item, itemType = 'media', episode = null) => {
-    setDownloadContext({ itemType, episode });
+  const getDownloadUrl = (serverId, itemType = 'media', episode = null) => {
+    const tmdbId = media?.id ?? id;
+    const serverConfigs = {
+      vidsrc: 'https://dl.vidsrc.party',
+      vidvault: 'https://vidvault.ru',
+    };
+
+    const baseUrl = serverConfigs[serverId] || serverConfigs.vidsrc;
+
+    if (itemType === 'movie') {
+      return `${baseUrl}/movie/${tmdbId}`;
+    }
+
+    if (itemType === 'series' && episode) {
+      return `${baseUrl}/tv/${tmdbId}/${selectedSeason}/${episode.episode_number}`;
+    }
+
+    return `${baseUrl}/tv/${tmdbId}`;
+  };
+
+  const handleDownload = (itemType = 'media', episode = null) => {
+    setDownloadTarget({ itemType, episode });
     setShowDownloadModal(true);
   };
 
-  const confirmDownload = (serverKey) => {
-    const tmdbId = media?.id ?? id;
-    let downloadUrl;
+  const confirmDownload = (serverId) => {
+    const downloadUrl = getDownloadUrl(serverId, downloadTarget.itemType, downloadTarget.episode);
 
-    if (serverKey === 'moviepire') {
-      if (downloadContext.itemType === 'movie') {
-        downloadUrl = `https://video.moviepire.co/download/movie/${tmdbId}`;
-      } else if (downloadContext.itemType === 'series' && downloadContext.episode) {
-        downloadUrl = `https://video.moviepire.co/download/tv/${tmdbId}/${selectedSeason}/${downloadContext.episode.episode_number}`;
-      } else {
-        downloadUrl = `https://video.moviepire.co/download/tv/${tmdbId}`;
-      }
-    } else {
-      if (downloadContext.itemType === 'movie') {
-        downloadUrl = `https://vidvault.ru/movie/${tmdbId}`;
-      } else if (downloadContext.itemType === 'series' && downloadContext.episode) {
-        downloadUrl = `https://vidvault.ru/tv/${tmdbId}/${selectedSeason}/${downloadContext.episode.episode_number}`;
-      } else {
-        downloadUrl = `https://vidvault.ru/tv/${tmdbId}`;
-      }
-    }
-
-    setShowDownloadModal(false);
     navigate(
       `/webview/${encodeURIComponent(downloadUrl)}`,
       {
@@ -403,12 +471,16 @@ export default function ShowMovieDetails() {
           downloadMetadata: {
             title: media?.title || media?.name || "AlphaFlix Download",
             posterUrl: media?.poster_path ? `${POSTER_BASE}${media.poster_path}` : "",
-            itemType: downloadContext.itemType,
-            episodeNumber: downloadContext.episode?.episode_number ?? null,
+            itemType: downloadTarget.itemType,
+            episodeNumber: downloadTarget.episode?.episode_number ?? null,
           },
+          returnTo: location.pathname,
         },
       }
     );
+
+    setShowDownloadModal(false);
+    setDownloadTarget({ itemType: 'movie', episode: null });
   };
 
   const handleSave = async () => {
@@ -541,124 +613,87 @@ export default function ShowMovieDetails() {
 
   return (
     <div className="text-white">
-      <AnimatePresence>
-        {showDownloadModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
-            onClick={() => setShowDownloadModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.96, y: 12, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.96, y: 12, opacity: 0 }}
-              className="w-full max-w-lg rounded-2xl border border-gray-700 bg-slate-900/95 p-5 shadow-2xl shadow-black/50"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="mb-5 flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-skyblue/80">Download</p>
-                  <h3 className="mt-1 text-xl font-semibold text-white">Choose a server</h3>
-                  <p className="mt-2 text-sm text-gray-400">Pick where you want to continue the download.</p>
-                </div>
-                <button
-                  onClick={() => setShowDownloadModal(false)}
-                  className="rounded-full p-2 text-gray-400 transition hover:bg-gray-800 hover:text-white"
-                  aria-label="Close download server modal"
-                >
-                  <FiX className="h-5 w-5" />
-                </button>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <button
-                  onClick={() => confirmDownload("vidvault")}
-                  className="group rounded-2xl border border-slate-700 bg-slate-800/80 p-4 text-left transition hover:border-skyblue/60 hover:bg-slate-800"
-                >
-                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-skyblue/15 text-skyblue">
-                    <FiServer className="h-5 w-5" />
-                  </div>
-                  <h4 className="text-lg font-semibold text-white">Server 1</h4>
-                  <p className="mt-1 text-sm text-gray-400">Open the download page with this option.</p>
-                </button>
-
-                <button
-                  onClick={() => confirmDownload("moviepire")}
-                  className="group rounded-2xl border border-slate-700 bg-slate-800/80 p-4 text-left transition hover:border-skyblue/60 hover:bg-slate-800"
-                >
-                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-skyblue/15 text-skyblue">
-                    <FiServer className="h-5 w-5" />
-                  </div>
-                  <h4 className="text-lg font-semibold text-white">Server 2</h4>
-                  <p className="mt-1 text-sm text-gray-400">Open the download page with this option.</p>
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Video Player Modal with Server Switcher Interface */}
       {showPlayer && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-2 sm:p-4"
           onClick={handleClosePlayer}
         >
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.8, opacity: 0 }}
-            className="relative bg-navy rounded-xl w-full max-w-4xl h-[60vh] flex flex-col gap-3"
+            className="relative aspect-video w-full max-w-4xl overflow-visible rounded-xl bg-navy"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Top Toolbar: Server Switcher + Close Button */}
-            <div className="absolute -top-12 inset-x-0 flex items-center justify-between z-10 px-1">
+            <div className="absolute -top-12 inset-x-0 z-10 flex items-center gap-2 px-1">
               {/* Server Switcher Controls */}
-              <div className="flex items-center gap-2 bg-gray-900/80 p-1.5 rounded-lg border border-gray-800 backdrop-blur-sm shadow-md">
-                <span className="text-xs text-gray-400 font-medium px-2 flex items-center gap-1.5">
+              <div className="flex min-w-0 flex-1 items-center gap-1 rounded-lg border border-gray-800 bg-gray-900/80 p-1.5 shadow-md backdrop-blur-sm sm:gap-2">
+                <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-gray-400 sm:gap-1.5 sm:px-2">
                   <FiServer className="w-3.5 h-3.5 text-skyblue" /> Server:
                 </span>
                 <button
                   onClick={() => {
                     setActiveServer("vidsrc");
-                    toast.success("Switched to Server 2 (Vidsrc)", { autoClose: 1500 });
                   }}
-                  className={`text-xs font-bold px-3 py-1 rounded transition-all duration-250 ${
+                  className={`rounded px-2 py-1 text-xs font-bold transition-all duration-250 sm:px-3 ${
                     activeServer === "vidsrc"
                       ? "bg-sky-600 text-white shadow-sm"
                       : "text-gray-400 hover:text-white hover:bg-gray-800"
                   }`}
                 >
-                  Vidsrc
+                  Server 1
                 </button>
                 <button
                   onClick={() => {
                     setActiveServer("vidlink");
-                    toast.success("Switched to Server 1 (VidLink)", { autoClose: 1500 });
                   }}
-                  className={`text-xs font-bold px-3 py-1 rounded transition-all duration-250 ${
+                  className={`rounded px-2 py-1 text-xs font-bold transition-all duration-250 sm:px-3 ${
                     activeServer === "vidlink"
                       ? "bg-sky-600 text-white shadow-sm"
                       : "text-gray-400 hover:text-white hover:bg-gray-800"
                   }`}
                 >
-                  VidLink
+                  Server 2
                 </button>
                 
               </div>
 
+              {mediaType === "tv" && (
+                <div className="flex shrink-0 items-center gap-1 rounded-lg border border-gray-800 bg-gray-900/80 p-1">
+                  <button
+                    onClick={handlePreviousEpisode}
+                    disabled={!getAdjacentEpisode(-1)}
+                    aria-label="Play previous episode"
+                    title="Play previous episode"
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:text-gray-600"
+                  >
+                    <FiChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={handleNextEpisode}
+                    disabled={!getAdjacentEpisode(1)}
+                    aria-label="Play next episode"
+                    title="Play next episode"
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-white transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:text-gray-600"
+                  >
+                    <FiChevronRight className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
+
               {/* Close Button */}
               <button
                 onClick={handleClosePlayer}
-                className="flex items-center gap-2 rounded-full border border-red-500/70 bg-red-600/20 px-3 py-1.5 text-sm font-semibold text-red-100 transition-colors duration-200 hover:bg-red-600/30"
+                aria-label="Close player"
+                title="Close player"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-red-500/70 bg-red-600/20 text-red-100 transition-colors duration-200 hover:bg-red-600/30"
               >
                 <FiX className="w-4 h-4" />
-                <span>Cancel</span>
               </button>
             </div>
 
@@ -675,6 +710,66 @@ export default function ShowMovieDetails() {
           </motion.div>
         </motion.div>
       )}
+
+      {/* Download Server Selection Modal */}
+      <AnimatePresence>
+        {showDownloadModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4"
+            onClick={() => setShowDownloadModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.96, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.96, opacity: 0, y: 10 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-md rounded-2xl border border-gray-700 bg-gray-900/95 p-5 shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-xl font-bold text-white">Choose Download Server</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowDownloadModal(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-800 text-gray-300 transition hover:bg-gray-700 hover:text-white"
+                  aria-label="Close download server picker"
+                >
+                  <FiX className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => confirmDownload("vidsrc")}
+                  className="flex w-full items-center justify-between rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-left transition hover:border-sky-400 hover:bg-sky-500/20"
+                >
+                  <div>
+                    <p className="text-base font-bold text-white">Server 1</p>
+                    <p className="text-sm text-sky-200">Vidsrc</p>
+                  </div>
+                  <span className="rounded-full bg-sky-600 px-2 py-1 text-xs font-semibold text-white">Default</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => confirmDownload("vidvault")}
+                  className="flex w-full items-center justify-between rounded-xl border border-gray-600 bg-gray-800/70 px-4 py-3 text-left transition hover:border-gray-500 hover:bg-gray-800"
+                >
+                  <div>
+                    <p className="text-base font-bold text-white">Server 2</p>
+                    <p className="text-sm text-gray-300">Vidvault</p>
+                  </div>
+                  <span className="rounded-full bg-gray-700 px-2 py-1 text-xs font-semibold text-gray-200">Backup</span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Banner Section */}
       <div 
@@ -773,7 +868,7 @@ export default function ShowMovieDetails() {
                 <span className="text-yellow-400 mr-1">★</span>
                 <span>{rating}/10</span>
               </span>
-              <span>{releaseDate?.substring(0, 4)}</span>
+              <span>{formatDisplayDate(releaseDate)}</span>
               {runtime && <span>{runtime} min</span>}
               <span className="px-2 py-1 bg-skyblue/20 rounded-full text-sm">{status}</span>
             </div>
@@ -820,7 +915,7 @@ export default function ShowMovieDetails() {
                 <motion.button
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
-                  onClick={() => handleDownload(title, 'movie')}
+                  onClick={() => handleDownload('movie')}
                   className="flex items-center justify-center w-12 h-12 bg-gray-700/70 hover:bg-gray-600/70 rounded-full font-semibold transition flex-shrink-0"
                   title={`Download ${title}`}
                 >
@@ -909,7 +1004,15 @@ export default function ShowMovieDetails() {
                           </h3>
                           <span className="text-xs text-gray-400 flex-shrink-0">{episode.runtime}m</span>
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">{episode.air_date}</p>
+                        <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
+                          <span>{episode.air_date}</span>
+                          <span className="flex items-center gap-1 text-yellow-400">
+                            <span>★</span>
+                            <span className="text-gray-300">
+                              {episode.vote_average != null ? episode.vote_average.toFixed(1) : "N/A"}
+                            </span>
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -952,7 +1055,7 @@ export default function ShowMovieDetails() {
                           <motion.button
                             whileHover={{ scale: 1.03 }}
                             whileTap={{ scale: 0.97 }}
-                            onClick={() => handleDownload(media.name, 'series', episode)}
+                            onClick={() => handleDownload('series', episode)}
                             className="flex-1 flex items-center justify-center gap-2 bg-gray-700/80 hover:bg-gray-600 text-white font-bold text-xs py-2 px-3 rounded-md transition border border-gray-600/40"
                             title={`Download Episode ${episode.episode_number}`}
                           >

@@ -12,6 +12,61 @@ body {
   color: white;
 }
 
+.alphaflix-toast {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-left: 4px solid #38bdf8;
+  border-radius: 14px;
+  background: rgba(10, 26, 47, 0.96);
+  color: #f8fafc;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+}
+
+.alphaflix-toast.Toastify__toast--success {
+  border-left-color: #22c55e;
+}
+
+.alphaflix-toast.Toastify__toast--warning {
+  border-left-color: #f59e0b;
+}
+
+.alphaflix-toast.Toastify__toast--error {
+  border-left-color: #f87171;
+}
+
+.alphaflix-toast-body {
+  padding: 0;
+  line-height: 1.35;
+}
+
+.alphaflix-toast .Toastify__close-button {
+  align-self: center;
+  color: #cbd5e1;
+  opacity: 0.8;
+}
+
+.alphaflix-toast .Toastify__progress-bar {
+  height: 3px;
+}
+
+@media (max-width: 640px) {
+  .alphaflix-toast-container {
+    top: calc(env(safe-area-inset-top) + 0.75rem);
+    right: 0.5rem;
+    left: 0.5rem;
+    width: auto;
+    padding: 0;
+  }
+
+  .alphaflix-toast {
+    min-height: 52px;
+    margin-bottom: 0.5rem;
+    padding: 0.7rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+  }
+}
+
 .role-scroller {
   min-width: 0;
   overflow: hidden;

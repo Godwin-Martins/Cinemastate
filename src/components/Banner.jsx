@@ -11,6 +11,8 @@ const API_KEY = "2ff044456d4fa1c8534fc9e4378e227f";
 const IMG_BASE = "https://image.tmdb.org/t/p/original";
 const bannerCache = new Map();
 
+const getTmdbId = (media) => media?.id ?? media?.tmdb_id ?? media?.tmdbId;
+
 export default function Banner({
   fetchUrl = `/trending/all/week?api_key=${API_KEY}`,
   forcedMediaType = null, // pass "movie" or "tv" when fetchUrl doesn't return media_type (e.g. /movie/popular, /tv/popular)
@@ -69,7 +71,7 @@ export default function Banner({
       const interval = setInterval(() => {
         setDirection(1);
         setIndex((prev) => (prev + 1) % trending.length);
-      }, 5000);
+      }, 10000);
       return () => clearInterval(interval);
     }
   }, [trending]);
@@ -80,15 +82,16 @@ export default function Banner({
 
     const currentItem = trending[index];
     const currentType = currentItem.media_type || (currentItem.title ? "movie" : "tv");
+    const tmdbId = getTmdbId(currentItem);
 
-    if (logos[currentItem.id] !== undefined) return; // already fetched (or attempted)
+    if (!tmdbId || logos[tmdbId] !== undefined) return; // already fetched (or attempted)
 
     let cancelled = false;
 
     async function fetchLogo() {
       try {
         const res = await axios.get(
-          `https://api.themoviedb.org/3/${currentType}/${currentItem.id}/images?api_key=${API_KEY}&include_image_language=en,null`
+          `https://api.themoviedb.org/3/${currentType}/${tmdbId}/images?api_key=${API_KEY}&include_image_language=en,null`
         );
         const logosList = res.data.logos || [];
         const bestLogo =
@@ -98,12 +101,12 @@ export default function Banner({
           logosList[0];
 
         if (!cancelled) {
-          setLogos((prev) => ({ ...prev, [currentItem.id]: bestLogo?.file_path || null }));
+          setLogos((prev) => ({ ...prev, [tmdbId]: bestLogo?.file_path || null }));
         }
       } catch (err) {
         console.error("Error fetching logo:", err);
         if (!cancelled) {
-          setLogos((prev) => ({ ...prev, [currentItem.id]: null }));
+          setLogos((prev) => ({ ...prev, [tmdbId]: null }));
         }
       }
     }
@@ -119,26 +122,28 @@ export default function Banner({
 
   const item = trending[index];
   const mediaType = item.media_type || (item.title ? "movie" : "tv");
-  const logoPath = logos[item.id];
+  const tmdbId = getTmdbId(item);
+  const logoPath = logos[tmdbId];
 
   const getVideoUrl = (media) => {
-    if (!media) return "";
+    const mediaId = getTmdbId(media);
+    if (!mediaId) return "";
     const type = media.media_type === "movie" || media.title ? "movie" : "tv";
 
     if (activeServer === "vidlink") {
       // VidLink Route Builder
       if (type === "movie") {
-        return `https://vidlink.pro/movie/${media.id}?primaryColor=0ea5e9`;
+        return `https://video.moviepire.co/embed/movie/${mediaId}?primaryColor=0ea5e9`;
       }
       // Default to season 1, episode 1 for TV (Banner has no episode context)
-      return `https://vidlink.pro/tv/${media.id}/1/1?primaryColor=0ea5e9`;
+      return `https://video.moviepire.co/embed/tv/${mediaId}/1/1?primaryColor=0ea5e9`;
     }
 
-    // Default Vidsrc (vsrc.su) Route Builder
+    // Vidsrc.link Route Builder
     if (type === "movie") {
-      return `https://vsrc.su/embed/movie/${media.id}?autoplay=1`;
+      return `https://vidsrc.link/embed/movie/${mediaId}`;
     }
-    return `https://vsrc.su/embed/tv/${media.id}/1/1?autoplay=1`; // default season 1, ep 1
+    return `https://vidsrc.link/embed/tv/${mediaId}/1/1`; // default season 1, ep 1
   };
 
   const handlePlay = (media) => {
@@ -163,7 +168,7 @@ export default function Banner({
       {/* Background */}
       <AnimatePresence custom={direction} mode="wait">
         <motion.div
-          key={item.id}
+          key={tmdbId}
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: `url(${IMG_BASE}${item.backdrop_path})` }}
           custom={direction}
@@ -182,7 +187,7 @@ export default function Banner({
       <div className="absolute bottom-6 md:bottom-12 left-4 md:left-10 right-4 md:right-auto z-10">
         <AnimatePresence>
           <motion.div
-            key={item.id}
+            key={tmdbId}
             className="p-0 md:p-6 rounded-xl max-w-full md:max-w-2xl bg-transparent md:bg-navy/40 md:backdrop-blur-sm"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -224,7 +229,7 @@ export default function Banner({
               </motion.button>
 
               {/* Info Button */}
-              <Link to={`/${mediaType === "movie" ? "movie" : "series"}/${item.id}`}>
+              <Link to={`/${mediaType === "movie" ? "movie" : "series"}/${tmdbId}`}>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -245,42 +250,42 @@ export default function Banner({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 sm:p-4"
             onClick={handleClosePlayer}
           >
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="relative w-[90%] md:w-[60%] h-[60%] bg-black rounded-lg overflow-visible"
+              className="relative aspect-video w-full max-w-4xl overflow-visible rounded-lg bg-black md:w-[60%]"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Top Toolbar: Server Switcher + Close Button */}
-              <div className="absolute -top-12 inset-x-0 flex items-center justify-between z-10 px-1">
+              <div className="absolute -top-12 inset-x-0 z-10 flex items-center gap-2 px-1">
                 {/* Server Switcher Controls */}
-                <div className="flex items-center gap-2 bg-gray-900/80 p-1.5 rounded-lg border border-gray-800 backdrop-blur-sm shadow-md">
-                  <span className="text-xs text-gray-400 font-medium px-2 flex items-center gap-1.5">
+                <div className="flex min-w-0 flex-1 items-center gap-1 rounded-lg border border-gray-800 bg-gray-900/80 p-1.5 shadow-md backdrop-blur-sm sm:gap-2">
+                  <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-gray-400 sm:gap-1.5 sm:px-2">
                     <FiServer className="w-3.5 h-3.5 text-skyblue" /> Server:
                   </span>
                    <button
                     onClick={() => setActiveServer("vidsrc")}
-                    className={`text-xs font-bold px-3 py-1 rounded transition-all duration-250 ${
+                    className={`rounded px-2 py-1 text-xs font-bold transition-all duration-250 sm:px-3 ${
                       activeServer === "vidsrc"
                         ? "bg-sky-600 text-white shadow-sm"
                         : "text-gray-400 hover:text-white hover:bg-gray-800"
                     }`}
                   >
-                    Vidsrc
+                    Server 1
                   </button>
                   <button
                     onClick={() => setActiveServer("vidlink")}
-                    className={`text-xs font-bold px-3 py-1 rounded transition-all duration-250 ${
+                    className={`rounded px-2 py-1 text-xs font-bold transition-all duration-250 sm:px-3 ${
                       activeServer === "vidlink"
                         ? "bg-sky-600 text-white shadow-sm"
                         : "text-gray-400 hover:text-white hover:bg-gray-800"
                     }`}
                   >
-                    VidLink
+                    Server 2
                   </button>
                  
                 </div>
@@ -288,10 +293,11 @@ export default function Banner({
                 {/* Close Button */}
                 <button
                   onClick={handleClosePlayer}
-                  className="flex items-center gap-2 rounded-full border border-red-500/70 bg-red-600/20 px-3 py-1.5 text-sm font-semibold text-red-100 transition-colors duration-200 hover:bg-red-600/30"
+                  aria-label="Close player"
+                  title="Close player"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-red-500/70 bg-red-600/20 text-red-100 transition-colors duration-200 hover:bg-red-600/30"
                 >
                   <FiX className="w-4 h-4" />
-                  <span>Cancel</span>
                 </button>
               </div>
 

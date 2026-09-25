@@ -1,5 +1,5 @@
 // src/App.jsx
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import Header from "./components/Header";
 import Banner from "./components/Banner";
 import Home from "./pages/Home";
@@ -26,6 +26,30 @@ import { Smartphone } from "lucide-react";
 import { downloadAlphaFlixApk } from "./utils/apkDownloader";
 
 const WELCOME_DISMISSED_KEY = "alphaflix-welcome-dismissed";
+
+function PageTitle() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    let pageName = "AlphaFlix";
+
+    if (pathname === "/movies") pageName = "Movies";
+    else if (pathname === "/series") pageName = "Series";
+    else if (pathname === "/search") pageName = "Search";
+    else if (pathname === "/profile") pageName = "Profile";
+    else if (pathname === "/downloads") pageName = "Downloads";
+    else if (pathname.startsWith("/genre/")) pageName = "Genre";
+    else if (pathname.startsWith("/person/")) pageName = "Person";
+    else if (pathname.startsWith("/movie/")) pageName = "Movie";
+    else if (pathname.startsWith("/series/")) pageName = "Series";
+    else if (pathname.startsWith("/webview/")) pageName = "Download";
+    else if (pathname !== "/") pageName = "Page Not Found";
+
+    document.title = pageName === "AlphaFlix" ? pageName : `${pageName} | AlphaFlix`;
+  }, [pathname]);
+
+  return null;
+}
 
 function App() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
@@ -55,6 +79,7 @@ function App() {
 
   return (
     <Router>
+      <PageTitle />
       <ScrollToTop />
       <Header />
       <div className="pb-24 md:pb-0">
@@ -117,6 +142,9 @@ function App() {
         draggable
         pauseOnHover
         theme="dark"
+        className="alphaflix-toast-container"
+        toastClassName="alphaflix-toast"
+        bodyClassName="alphaflix-toast-body"
       />
     </Router>
   );

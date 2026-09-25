@@ -64,7 +64,17 @@ export default function SectionSlider({ title, items, fetchUrl }) {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.05, duration: 0.5 }}
           >
-            <Link to={`/${item.media_type === "tv" ? "series" : "movie"}/${item.id}`}>
+            <Link
+              to={`/${item.media_type === "tv" ? "series" : "movie"}/${item.id}`}
+              state={
+                item.media_type === "tv" && item.lastWatchedEpisode != null
+                  ? {
+                      resumeSeason: item.lastWatchedSeason || 1,
+                      resumeEpisode: item.lastWatchedEpisode,
+                    }
+                  : undefined
+              }
+            >
               <div className="relative rounded-lg overflow-hidden shadow-lg bg-navy/60">
                 {/* Rating badge */}
                 <div className="hidden lg:flex absolute top-2 right-2 items-center bg-black/70 px-2 py-1 rounded-full z-10">

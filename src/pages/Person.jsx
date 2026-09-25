@@ -9,6 +9,23 @@ const API_KEY = "2ff044456d4fa1c8534fc9e4378e227f";
 const IMG_BASE = "https://image.tmdb.org/t/p/original";
 const POSTER_BASE = "https://image.tmdb.org/t/p/w342";
 
+const calculateAge = (birthday, endDateString = null) => {
+  if (!birthday) return null;
+
+  const [birthYear, birthMonth, birthDay] = birthday.split("-").map(Number);
+  const endDate = endDateString
+    ? endDateString.split("-").map(Number)
+    : [new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate()];
+  const [endYear, endMonth, endDay] = endDate;
+
+  let age = endYear - birthYear;
+  if (endMonth < birthMonth || (endMonth === birthMonth && endDay < birthDay)) {
+    age -= 1;
+  }
+
+  return age;
+};
+
 export default function Person() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -66,6 +83,10 @@ export default function Person() {
     fetchPersonDetails();
   }, [id]);
 
+  useEffect(() => {
+    document.title = person ? `${person.name} | AlphaFlix` : "Person | AlphaFlix";
+  }, [person]);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -82,6 +103,8 @@ export default function Person() {
     );
   }
 
+  const age = calculateAge(person.birthday, person.deathday);
+
   return (
     <div className="text-white min-h-screen bg-gray-900">
       {/* Back Button - Top Left */}
@@ -89,10 +112,10 @@ export default function Person() {
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         onClick={() => navigate(-1)}
-        className="fixed top-15 left-6 z-40 flex items-center justify-center w-16 h-16 bg-skyblue/80 hover:bg-skyblue rounded-full transition shadow-lg"
+        className="fixed left-4 top-20 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-skyblue/80 shadow-lg transition hover:bg-skyblue lg:left-6 lg:h-16 lg:w-16"
         title="Go back"
       >
-        <FiArrowLeft className="w-8 h-8 text-navy font-bold" />
+        <FiArrowLeft className="h-5 w-5 font-bold text-navy lg:h-8 lg:w-8" />
       </motion.button>
 
       {/* Background image */}
@@ -103,16 +126,16 @@ export default function Person() {
         ></div>
       )}
       
-      <div className="container mx-auto px-4 py-8 relative z-10">
+      <div className="container relative z-10 mx-auto px-4 pb-8 pt-20 lg:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Profile Image */}
           <div className="lg:col-span-1">
             <div className="sticky top-8">
-              <div className="bg-gray-800/50 rounded-xl overflow-hidden shadow-2xl">
+              <div className="mx-auto max-w-[220px] overflow-hidden rounded-xl bg-gray-800/50 shadow-2xl lg:max-w-none">
                 <img
-                  src={person.profile_path ? `${IMG_BASE}${person.profile_path}` : "/no-profile.png"}
+                  src={person.profile_path ? `https://image.tmdb.org/t/p/w342${person.profile_path}` : "/no-profile.png"}
                   alt={person.name}
-                  className="w-full h-auto object-cover"
+                  className="aspect-[2/3] w-full object-cover"
                 />
               </div>
               
@@ -138,6 +161,11 @@ export default function Person() {
                       {person.birthday 
                         ? new Date(person.birthday).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) 
                         : "Unknown"}
+                      {age !== null && (
+                        <span className="ml-2 text-gray-400">
+                          ({age} {person.deathday ? "at death" : "years old"})
+                        </span>
+                      )}
                     </p>
                   </div>
                   

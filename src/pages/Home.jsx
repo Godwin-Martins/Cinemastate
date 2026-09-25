@@ -13,6 +13,7 @@ const sections = [
   { title: "Trending", url: `/trending/all/week?api_key=${API_KEY}`, mediaType: null },
   { title: "Top Rated", movieUrl: `/movie/top_rated?api_key=${API_KEY}`, tvUrl: `/tv/top_rated?api_key=${API_KEY}` },
   { title: "Animations", movieUrl: `/discover/movie?api_key=${API_KEY}&with_genres=16`, tvUrl: `/discover/tv?api_key=${API_KEY}&with_genres=16` },
+  { title: "Anime", movieUrl: `/discover/movie?api_key=${API_KEY}&with_genres=16&with_original_language=ja&sort_by=popularity.desc`, tvUrl: `/discover/tv?api_key=${API_KEY}&with_genres=16&with_original_language=ja&sort_by=popularity.desc` },
   { title: "Horror Movies", url: `/discover/movie?api_key=${API_KEY}&with_genres=27`, mediaType: "movie" },
   { title: "Mystery Series", url: `/discover/tv?api_key=${API_KEY}&with_genres=9648`, mediaType: "tv" },
   { title: "Action", movieUrl: `/discover/movie?api_key=${API_KEY}&with_genres=28`, tvUrl: `/discover/tv?api_key=${API_KEY}&with_genres=10759` },

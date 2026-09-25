@@ -14,6 +14,7 @@ const MOVIE_SECTIONS = [
   { title: "Marvel Movies", url: `/discover/movie?api_key=${API_KEY}&with_companies=420|19551|38679&sort_by=popularity.desc` },
   { title: "DC Movies", url: `/discover/movie?api_key=${API_KEY}&with_companies=184898|128064|128064&sort_by=popularity.desc` },
   { title: "Animation", url: `/discover/movie?api_key=${API_KEY}&with_genres=16` },
+  { title: "Anime", url: `/discover/movie?api_key=${API_KEY}&with_genres=16&with_original_language=ja&sort_by=popularity.desc` },
   { title: "Horror", url: `/discover/movie?api_key=${API_KEY}&with_genres=27` },
   { title: "Comedy", url: `/discover/movie?api_key=${API_KEY}&with_genres=35` },
   { title: "Thrillers", url: `/discover/movie?api_key=${API_KEY}&with_genres=53` },
