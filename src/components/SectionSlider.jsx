@@ -1,14 +1,14 @@
 // src/components/SectionSlider.jsx
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import SeeMoreModal from "./SeeMoreModal";
 import { filterMediaArray } from "../utils/mediaFilter";
 
 export default function SectionSlider({ title, items, fetchUrl }) {
   const scrollRef = useRef(null);
-  const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const scroll = (direction) => {
     if (!scrollRef.current) return;
@@ -24,7 +24,14 @@ export default function SectionSlider({ title, items, fetchUrl }) {
       <div className="flex items-center justify-between mb-4 px-4">
         <h2 className="text-xl md:text-2xl font-bold">{title}</h2>
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={() => navigate("/see-more", {
+            state: {
+              title,
+              items,
+              fetchUrl,
+              from: `${location.pathname}${location.search}`,
+            },
+          })}
           className="text-sm text-sky-400 hover:text-sky-300"
         >
           See more
@@ -114,14 +121,6 @@ export default function SectionSlider({ title, items, fetchUrl }) {
         ))}
       </div>
 
-      {isOpen && (
-        <SeeMoreModal
-          title={title}
-          items={items}
-          fetchUrl={fetchUrl}
-          onClose={() => setIsOpen(false)}
-        />
-      )}
     </section>
   );
 }

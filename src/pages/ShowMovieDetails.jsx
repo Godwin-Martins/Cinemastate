@@ -364,8 +364,24 @@ export default function ShowMovieDetails() {
   // Function to handle playing media
   const handlePlay = (episode = null) => {
     if (mediaType === "tv") {
-      const episodeToPlay = episode || (selectedSeason === 1 ? seasonEpisodes[0] : null) || { episode_number: 1 };
+      if (episode && isEpisodeUnreleased(episode)) {
+        toast.info("This episode has not been released yet.", {
+          position: "bottom-center",
+          autoClose: 2000,
+        });
+        return;
+      }
+
+      const episodeToPlay = episode || (selectedSeason === 1 ? seasonEpisodes.find((item) => !isEpisodeUnreleased(item)) || seasonEpisodes[0] : null) || { episode_number: 1 };
       const seasonToPlay = episode ? selectedSeason : 1;
+
+      if (episodeToPlay && isEpisodeUnreleased(episodeToPlay)) {
+        toast.info("This episode has not been released yet.", {
+          position: "bottom-center",
+          autoClose: 2000,
+        });
+        return;
+      }
 
       addToWatchHistory(episodeToPlay, seasonToPlay);
       setCurrentEpisode(episodeToPlay);
@@ -457,6 +473,14 @@ export default function ShowMovieDetails() {
   };
 
   const handleDownload = (itemType = 'media', episode = null) => {
+    if (itemType === 'series' && episode && isEpisodeUnreleased(episode)) {
+      toast.info("This episode has not been released yet.", {
+        position: "bottom-center",
+        autoClose: 2000,
+      });
+      return;
+    }
+
     setDownloadTarget({ itemType, episode });
     setShowDownloadModal(true);
   };
@@ -604,6 +628,21 @@ export default function ShowMovieDetails() {
   const runtime = media.runtime || media.episode_run_time?.[0];
   const genres = media.genres?.map(g => g.name).join(", ");
   const rating = media.vote_average?.toFixed(1);
+
+  const isEpisodeUnreleased = (episode) => {
+    if (!episode) return false;
+
+    if (!episode.air_date) {
+      return true;
+    }
+
+    const releaseDate = new Date(`${episode.air_date}T00:00:00`);
+    if (Number.isNaN(releaseDate.getTime())) {
+      return true;
+    }
+
+    return releaseDate > new Date();
+  };
 
   const saveButtonClass = isSaved 
     ? "flex items-center justify-center w-12 h-12 bg-red-600/90 hover:bg-red-700/90 text-white rounded-full font-semibold transition flex-shrink-0"
@@ -977,6 +1016,7 @@ export default function ShowMovieDetails() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
             {seasonEpisodes.map(episode => {
               const isHovered = hoveredEpisodeId === episode.id;
+              const isUnreleased = isEpisodeUnreleased(episode);
 
               return (
                 <motion.div
@@ -1005,7 +1045,12 @@ export default function ShowMovieDetails() {
                           <span className="text-xs text-gray-400 flex-shrink-0">{episode.runtime}m</span>
                         </div>
                         <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
-                          <span>{episode.air_date}</span>
+                          <span>{episode.air_date || "TBA"}</span>
+                          {isUnreleased && (
+                            <span className="inline-flex items-center rounded-full border border-yellow-400/40 bg-yellow-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-yellow-300">
+                              Unreleased
+                            </span>
+                          )}
                           <span className="flex items-center gap-1 text-yellow-400">
                             <span>★</span>
                             <span className="text-gray-300">
@@ -1040,28 +1085,34 @@ export default function ShowMovieDetails() {
                         className="px-4 pb-4 overflow-hidden"
                       >
                         <div className="flex gap-3 border-t border-gray-700/50 pt-3 mt-1">
-                          {/* Play Button Action */}
-                          <motion.button
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.97 }}
-                            onClick={() => handlePlay(episode)}
-                            className="flex-1 flex items-center justify-center gap-2 bg-skyblue hover:bg-sky-400 text-navy font-bold text-xs py-2 px-3 rounded-md transition"
-                          >
-                            <FiPlay className="w-3.5 h-3.5 fill-current" />
-                            Play
-                          </motion.button>
+                          {isUnreleased ? (
+                            <div className="flex-1 flex items-center justify-center gap-2 border border-yellow-500/40 bg-yellow-500/10 text-yellow-200 font-bold text-xs py-2 px-3 rounded-md">
+                              Unreleased
+                            </div>
+                          ) : (
+                            <>
+                              <motion.button
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                                onClick={() => handlePlay(episode)}
+                                className="flex-1 flex items-center justify-center gap-2 bg-skyblue hover:bg-sky-400 text-navy font-bold text-xs py-2 px-3 rounded-md transition"
+                              >
+                                <FiPlay className="w-3.5 h-3.5 fill-current" />
+                                Play
+                              </motion.button>
 
-                          {/* Download Button Action */}
-                          <motion.button
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.97 }}
-                            onClick={() => handleDownload('series', episode)}
-                            className="flex-1 flex items-center justify-center gap-2 bg-gray-700/80 hover:bg-gray-600 text-white font-bold text-xs py-2 px-3 rounded-md transition border border-gray-600/40"
-                            title={`Download Episode ${episode.episode_number}`}
-                          >
-                            <FiDownload className="w-3.5 h-3.5" />
-                            Download
-                          </motion.button>
+                              <motion.button
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                                onClick={() => handleDownload('series', episode)}
+                                className="flex-1 flex items-center justify-center gap-2 bg-gray-700/80 hover:bg-gray-600 text-white font-bold text-xs py-2 px-3 rounded-md transition border border-gray-600/40"
+                                title={`Download Episode ${episode.episode_number}`}
+                              >
+                                <FiDownload className="w-3.5 h-3.5" />
+                                Download
+                              </motion.button>
+                            </>
+                          )}
                         </div>
                       </motion.div>
                     )}

@@ -7,6 +7,7 @@ import Footer from "./components/Footer";
 import Movies from "./pages/Movies";
 import Series from "./pages/Series";
 import SearchPage from "./pages/SearchPage";
+import SeeMorePage from "./pages/SeeMorePage";
 import GenrePage from "./pages/GenrePage";
 import ShowMovieDetails from "./pages/ShowMovieDetails";
 import Person from "./pages/Person";
@@ -16,7 +17,6 @@ import Downloads from "./pages/Downloads";
 import NotFound from "./pages/NotFound";
 import ScrollToTop from "./components/ScrollToTop";
 import WelcomeModal from "./components/WelcomeModal";
-import AndroidUpdateModal from "./components/AndroidUpdateModal";
 import { useEffect, useState } from "react";
 
 import { ToastContainer } from "react-toastify";
@@ -36,6 +36,7 @@ function PageTitle() {
     if (pathname === "/movies") pageName = "Movies";
     else if (pathname === "/series") pageName = "Series";
     else if (pathname === "/search") pageName = "Search";
+    else if (pathname === "/see-more") pageName = "More to Explore";
     else if (pathname === "/profile") pageName = "Profile";
     else if (pathname === "/downloads") pageName = "Downloads";
     else if (pathname.startsWith("/genre/")) pageName = "Genre";
@@ -53,7 +54,6 @@ function PageTitle() {
 
 function App() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-  const [showAndroidUpdateModal, setShowAndroidUpdateModal] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
   useEffect(() => {
@@ -66,15 +66,6 @@ function App() {
     }
 
     setShowWelcomeModal(false);
-
-    if (/Android/i.test(navigator.userAgent || "")) {
-      setShowAndroidUpdateModal(true);
-    }
-  };
-
-  const updateAndroidApp = () => {
-    setShowAndroidUpdateModal(false);
-    downloadAlphaFlixApk();
   };
 
   return (
@@ -96,6 +87,7 @@ function App() {
           <Route path="/movies" element={<Movies />} />
           <Route path="/series" element={<Series />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/see-more" element={<SeeMorePage />} />
           <Route path="/genre/:genreName" element={<GenrePage />} />
           <Route path="/movie/:id" element={<ShowMovieDetails />} />
           <Route path="/series/:id" element={<ShowMovieDetails />} />
@@ -112,13 +104,6 @@ function App() {
         <WelcomeModal
           onClose={closeWelcomeModal}
           onDontShowAgainChange={setDontShowAgain}
-        />
-      )}
-
-      {showAndroidUpdateModal && (
-        <AndroidUpdateModal
-          onClose={() => setShowAndroidUpdateModal(false)}
-          onUpdate={updateAndroidApp}
         />
       )}
 
