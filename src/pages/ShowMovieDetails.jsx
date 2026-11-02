@@ -83,8 +83,6 @@ export default function ShowMovieDetails() {
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [isDescriptionOverflowing, setIsDescriptionOverflowing] = useState(false);
   const [showPlayer, setShowPlayer] = useState(false);
-  const [showDownloadModal, setShowDownloadModal] = useState(false);
-  const [downloadTarget, setDownloadTarget] = useState({ itemType: 'movie', episode: null });
   const [currentEpisode, setCurrentEpisode] = useState(null);
   const [currentSeason, setCurrentSeason] = useState(1);
   const [trailerUrl, setTrailerUrl] = useState(null);
@@ -452,14 +450,10 @@ export default function ShowMovieDetails() {
     }
   };
 
-  const getDownloadUrl = (serverId, itemType = 'media', episode = null) => {
+  const getDownloadUrl = (itemType = 'media', episode = null) => {
     const tmdbId = media?.id ?? id;
-    const serverConfigs = {
-      vidsrc: 'https://dl.vidsrc.party',
-      vidvault: 'https://vidvault.ru',
-    };
-
-    const baseUrl = serverConfigs[serverId] || serverConfigs.vidsrc;
+    // Server 1 (Vidsrc) is disabled; downloads go directly to VidVault.
+    const baseUrl = 'https://vidvault.to';
 
     if (itemType === 'movie') {
       return `${baseUrl}/movie/${tmdbId}`;
@@ -481,12 +475,7 @@ export default function ShowMovieDetails() {
       return;
     }
 
-    setDownloadTarget({ itemType, episode });
-    setShowDownloadModal(true);
-  };
-
-  const confirmDownload = (serverId) => {
-    const downloadUrl = getDownloadUrl(serverId, downloadTarget.itemType, downloadTarget.episode);
+    const downloadUrl = getDownloadUrl(itemType, episode);
 
     navigate(
       `/webview/${encodeURIComponent(downloadUrl)}`,
@@ -495,16 +484,13 @@ export default function ShowMovieDetails() {
           downloadMetadata: {
             title: media?.title || media?.name || "AlphaFlix Download",
             posterUrl: media?.poster_path ? `${POSTER_BASE}${media.poster_path}` : "",
-            itemType: downloadTarget.itemType,
-            episodeNumber: downloadTarget.episode?.episode_number ?? null,
+            itemType,
+            episodeNumber: episode?.episode_number ?? null,
           },
           returnTo: location.pathname,
         },
       }
     );
-
-    setShowDownloadModal(false);
-    setDownloadTarget({ itemType: 'movie', episode: null });
   };
 
   const handleSave = async () => {
@@ -749,66 +735,6 @@ export default function ShowMovieDetails() {
           </motion.div>
         </motion.div>
       )}
-
-      {/* Download Server Selection Modal */}
-      <AnimatePresence>
-        {showDownloadModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4"
-            onClick={() => setShowDownloadModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.96, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.96, opacity: 0, y: 10 }}
-              transition={{ duration: 0.2 }}
-              className="w-full max-w-md rounded-2xl border border-gray-700 bg-gray-900/95 p-5 shadow-2xl"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-xl font-bold text-white">Choose Download Server</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowDownloadModal(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-800 text-gray-300 transition hover:bg-gray-700 hover:text-white"
-                  aria-label="Close download server picker"
-                >
-                  <FiX className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={() => confirmDownload("vidsrc")}
-                  className="flex w-full items-center justify-between rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-left transition hover:border-sky-400 hover:bg-sky-500/20"
-                >
-                  <div>
-                    <p className="text-base font-bold text-white">Server 1</p>
-                    <p className="text-sm text-sky-200">Vidsrc</p>
-                  </div>
-                  <span className="rounded-full bg-sky-600 px-2 py-1 text-xs font-semibold text-white">Default</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => confirmDownload("vidvault")}
-                  className="flex w-full items-center justify-between rounded-xl border border-gray-600 bg-gray-800/70 px-4 py-3 text-left transition hover:border-gray-500 hover:bg-gray-800"
-                >
-                  <div>
-                    <p className="text-base font-bold text-white">Server 2</p>
-                    <p className="text-sm text-gray-300">Vidvault</p>
-                  </div>
-                  <span className="rounded-full bg-gray-700 px-2 py-1 text-xs font-semibold text-gray-200">Backup</span>
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Banner Section */}
       <div 

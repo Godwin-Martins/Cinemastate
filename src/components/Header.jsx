@@ -1,13 +1,19 @@
 // src/components/Header.jsx
 import { Search, Film, Tv, UserRound, DownloadCloudIcon, Smartphone, Home as HomeIcon } from "lucide-react";
 import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { createElement, useState, useEffect } from "react";
 import { auth } from "../firebase";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { FaUserCircle } from "react-icons/fa";
+import AndroidUpdateModal from "./AndroidUpdateModal";
+import { downloadAlphaFlixApk } from "../utils/apkDownloader";
 
 export default function Header() {
   const [user, setUser] = useState(null);
+  const [showApkModal, setShowApkModal] = useState(false);
+  const [isDownloadingApk, setIsDownloadingApk] = useState(false);
+  const [apkDownloadProgress, setApkDownloadProgress] = useState(null);
+  const [apkDownloadError, setApkDownloadError] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -41,6 +47,21 @@ export default function Header() {
       navigate("/profile");
     } else {
       handleSignIn();
+    }
+  };
+
+  const handleApkDownload = async () => {
+    setIsDownloadingApk(true);
+    setApkDownloadProgress(0);
+    setApkDownloadError("");
+
+    try {
+      await downloadAlphaFlixApk(setApkDownloadProgress);
+    } catch (error) {
+      console.error("Error downloading AlphaFlix APK:", error);
+      setApkDownloadError("Could not download the APK. Please try again.");
+    } finally {
+      setIsDownloadingApk(false);
     }
   };
 
@@ -135,9 +156,13 @@ export default function Header() {
         <div className="flex items-center gap-2 md:hidden">
           <button
             type="button"
-            onClick={() => window.open('/apk/AlphaFlix.apk', '_blank', 'noopener,noreferrer')}
+            onClick={() => {
+              setApkDownloadError("");
+              setApkDownloadProgress(null);
+              setShowApkModal(true);
+            }}
             className="rounded-full bg-blue-600 p-2 text-white transition hover:bg-blue-500"
-            aria-label="Download AlphaFlix APK"
+            aria-label="Open AlphaFlix APK download"
           >
             <Smartphone size={20} />
           </button>
@@ -146,7 +171,7 @@ export default function Header() {
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/95 px-2 py-2 backdrop-blur-xl md:hidden">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2">
-          {mobileNavItems.map(({ label, to, icon: Icon, active, separate }) => (
+          {mobileNavItems.map(({ label, to, icon: NavIcon, active, separate }) => (
             <button
               key={label}
               onClick={() => label === "Profile" || label === "Sign in" ? handleProfileClick() : navigate(to)}
@@ -161,13 +186,23 @@ export default function Header() {
               {label === "Profile" && user && user.photoURL ? (
                 <img src={user.photoURL.split('?')[0]} alt="Profile" className="mb-1 h-5 w-5 rounded-full object-cover" />
               ) : (
-                <Icon className={`mb-1 h-5 w-5 ${active ? "text-[#007ACC]" : "text-gray-300"}`} />
+                createElement(NavIcon, { className: `mb-1 h-5 w-5 ${active ? "text-[#007ACC]" : "text-gray-300"}` })
               )}
               <span>{label}</span>
             </button>
           ))}
         </div>
       </div>
+
+      {showApkModal && (
+        <AndroidUpdateModal
+          onClose={() => setShowApkModal(false)}
+          onDownload={handleApkDownload}
+          isDownloading={isDownloadingApk}
+          progress={apkDownloadProgress}
+          error={apkDownloadError}
+        />
+      )}
     </>
   );
 }
